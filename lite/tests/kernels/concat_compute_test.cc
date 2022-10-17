@@ -173,6 +173,10 @@ TEST(Concat, precision) {
   abs_error = 1e-2;  // use fp16 in npu
   axes = std::vector<int>{1, 2};
   use_axis_tensor = std::vector<bool>{false};
+#elif defined(LITE_WITH_OPENCL)
+  place = Place(TARGET(kOpenCL), PRECISION(kFP16), DATALAYOUT(kNCHW));
+  abs_error = 1e-2;  // Using fp16 in OPENCL
+  use_axis_tensor = std::vector<bool>{false};
 #elif defined(LITE_WITH_ARM)
   place = TARGET(kARM);
 #elif defined(LITE_WITH_X86)
