@@ -544,6 +544,33 @@ OpenCL 的 fp16 特性是 OpenCL 标准的一个扩展，当前绝大部分移�
 - 函数声明[ paddle_api.h ](https://github.com/PaddlePaddle/Paddle-Lite/blob/develop/lite/api/paddle_api.h)
 - 使用示例[ mobilenetv1_light_api.cc](https://github.com/PaddlePaddle/Paddle-Lite/blob/develop/lite/demo/cxx/mobile_light/mobilenetv1_light_api.cc)
 
+### 设置 OpenCL 混合内存对象推理
+OpenCL大部分算子支持cl::Image2D数据排布，少部分算子支持cl::Buffer（正在持续扩充），出于以下背景原因考虑
+1. 不同的设备采用 cl::Image2D 和 cl::Buffer 性能优势不同。
+2. 设备本身对 cl::Image2D 的 CL_DEVICE_IMAGE2D_MAX_HEIGHT 和 CL_DEVICE_IMAGE2D_MAX_WIDTH 有限制，导致部分op尺寸过大时会报错：malloc image is out of max image size(w,h)。
+3. 部分op采用 cl::Buffer 内存对象会有很好的性能，比如reshape，transpose，keep_dims 为 false 的 argmax，reduce等。
+支持两种内存对象可配置，通过环境变量 `OPENCL_MEMORY_CONFIG_FILE` 设置『OpenCL 内存对象配置文件』，实现人为指定部分op使用cl::Buffer实现；
+### 设置 OpenCL 与 CPU 异构推理
+对于cl::Image2D和cl::Buffer均无法支持或者性能差的算子，可以人为指定部分op跑cpu的实现，可通过环境变量 `OPENCL_MEMORY_CONFIG_FILE` 设置『OpenCL 内存对象配置文件』实现。
+如下的例子，网络模型为ch_PP-OCRv3_rec_infer，其中reshape2 和 transpose2跑cl::Buffer实现，conv2d，depthwise_conv2d 和 pool2d跑CPU实现，剩余大部分op跑cl::Image2D实现。
+
+```shell
+$ cd /data/local/tmp/opencl
+$ cat ./ch_PP-OCRv3_rec_infer_buffer.txt
+device:gpu buffer
+reshape2:linear_35.tmp_1:reshape2_5.tmp_0
+transpose2:reshape2_5.tmp_0:transpose_10.tmp_0
+reshape2:linear_39.tmp_1:reshape2_7.tmp_0
+transpose2:reshape2_7.tmp_0:transpose_13.tmp_0
+device:cpu
+conv2d:elementwise_mul_2:batch_norm_51.tmp_4
+depthwise_conv2d:batch_norm_51.tmp_4:batch_norm_52.tmp_4
+pool2d:batch_norm_52.tmp_4:pool2d_4.tmp_0
+$ export OPENCL_MEMORY_CONFIG_FILE=./ch_PP-OCRv3_rec_infer_buffer.txt
+$ ./benchmark_bin  --model_file=./ch_PP-OCRv3_rec_infer/inference.pdmodel \
+    --param_file=./ch_PP-OCRv3_rec_infer/inference.pdiparams \
+    --input_shape=1,3,48,320 --backend=opencl --repeats=20 --warmup=2
+```
 
 ## 9. 常见问题
 
