@@ -40,6 +40,8 @@ bool FillConstantOp::InferShapeImpl() const {
     }
   } else if (!param_.shape.empty()) {
     out_shape = param_.shape;
+  } else if (param_.shape.empty()) {
+    out_shape = {1};
   } else {
     LOG(WARNING) << "FillConstant is 0D-tensor output";
   }
